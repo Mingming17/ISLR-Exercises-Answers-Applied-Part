@@ -1,0 +1,267 @@
+---
+title: "4. Classification"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 10
+###a
+```{r}
+library(ISLR)
+summary(Weekly)
+```
+
+```{r}
+#Scatter plot 
+pairs(Weekly[,1:8])
+# Correlation Plot
+cor(Weekly[,1:8])
+```
+
+###b
+```{r}
+#logistic Regression using all variables
+glm.fit = glm(Direction~Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume, data = Weekly, family = binomial)
+summary(glm.fit)
+```
+
+###c
+```{r}
+lg_probs = predict(glm.fit,type = "response")
+lg_probs[lg_probs > 0.5] = "Up"
+lg_probs[lg_probs <= 0.5] = "Down"
+table(lg_probs,Direction)
+mean(lg_probs == Direction)
+```
+
+###d
+```{r}
+#Logistic Regression using just Lag2
+train = Year < 2009
+test = Weekly[!train,]
+test_direction = Direction[!train]
+glm.fit2 = glm(Direction ~ Lag2, data = Weekly, family = binomial, subset = train)
+lg_probs2 = predict(glm.fit2,test,type = "response")
+lg_probs2[lg_probs2 > 0.5] = "Up"
+lg_probs2[lg_probs2 <= 0.5] = "Down"
+table(lg_probs2,test_direction)
+mean(lg_probs2 == test_direction)
+```
+
+###e
+```{r}
+#lda
+library(MASS)
+lda.fit = lda(Direction ~Lag2,data = Weekly, subset = train)
+lda_pred = predict(lda.fit,test)
+table(lda_pred$class,test_direction)
+mean(lda_pred$class==test_direction)
+```
+
+##f
+```{r}
+#qda
+qda.fit = qda(Direction ~Lag2,data = Weekly, subset = train)
+qda_pred = predict(qda.fit,test)
+table(qda_pred$class,test_direction)
+mean(qda_pred$class==test_direction)
+```
+
+###g
+```{r}
+#knn
+library(class)
+set.seed(5)
+train_X = Weekly[train,3]
+test_X = Weekly[!train,3]
+dim(train_X) = c(985,1)
+dim(test_X) = c(104,1)
+train_direction = Direction[train]
+
+knn_pred = knn(train_X,test_X,train_direction, k=1)
+table(knn_pred,test_direction)
+```
+
+###i
+```{r}
+#logistic regression using Lag2 and Interaction of Year and Volume
+glm.fit3 = glm(Direction ~ Lag2 + Year:Volume + Year + Volume, data = Weekly, family = binomial, subset = train)
+summary(glm.fit3)
+
+#logistic regression using Lag2 and Lag2^2
+glm.fit4 = glm(Direction ~ Lag2 + I(Lag2^2), data = Weekly, family = binomial, subset = train)
+summary(glm.fit4)
+lg_probs3 = predict(glm.fit4,test,type = "response")
+lg_probs3[lg_probs3 > 0.5] = "Up"
+lg_probs3[lg_probs3 <= 0.5] = "Down"
+table(lg_probs3,test_direction)
+mean(lg_probs3 == test_direction)
+
+#lda using Lag2 and Lag2^2
+lda.fit2 = lda(Direction ~Lag2+ I(Lag2^2),data = Weekly, subset = train)
+lda_pred2 = predict(lda.fit2,test)
+table(lda_pred2$class,test_direction)
+mean(lda_pred2$class==test_direction)
+
+#Try change the number of K
+knn_pred2 = knn(train_X,test_X,train_direction, k=3)
+table(knn_pred2,test_direction)
+
+knn_pred3 = knn(train_X,test_X,train_direction, k=5)
+table(knn_pred3,test_direction)
+
+
+
+```
+
+##11
+###a
+```{r}
+#create mpg01 column
+summary(Auto$mpg)
+median(Auto$mpg)
+Auto = transform(Auto, mpg01 = ifelse(mpg > median(Auto$mpg),1,0))
+```
+
+###b
+```{r}
+cor(Auto[-c(9)])
+pairs(Auto[-c(9)])
+```
+
+###c
+```{r}
+#train test split
+require(caTools)
+set.seed(101)
+sample = sample.split(Auto$mpg,SplitRatio = 0.7)
+train = subset(Auto,sample == TRUE)
+test = subset(Auto, sample == FALSE)
+```
+
+###d
+```{r}
+#lda
+lda.fit = lda(mpg01 ~cylinders + displacement +  weight + origin,data = train)
+lda_pred = predict(lda.fit,test)
+table(lda_pred$class,test$mpg01)
+mean(lda_pred$class==test$mpg01)
+```
+
+###e
+```{r}
+#qda
+qda.fit = qda(mpg01 ~cylinders + displacement +  weight + origin,data = train)
+qda_pred = predict(qda.fit,test)
+table(qda_pred$class,test$mpg01)
+mean(qda_pred$class==test$mpg01)
+```
+
+###f
+```{r}
+#Logistic Regression
+glm.fit = glm(mpg01 ~cylinders + displacement +  weight + origin,data = train,family = binomial)
+lg_probs = predict(glm.fit,test,type = "response")
+lg_probs[lg_probs > 0.5] = 1
+lg_probs[lg_probs <= 0.5] = 0
+table(lg_probs,test$mpg01)
+mean(lg_probs == test$mpg01)
+```
+
+###g
+```{r}
+train_X = train[,c("cylinders","displacement","weight","origin")]
+test_X = test[,c("cylinders","displacement","weight","origin")]
+train_Y = train$mpg01
+test_Y = test$mpg01
+
+train_X = scale(train_X)
+test_X = scale(test_X)
+
+knn_pred = knn(train_X,test_X,train_Y,k=10)
+table(knn_pred,test_Y)
+```
+
+##12
+```{r}
+Power2 = function(x,a){
+  print(x^a)
+}
+Power2(3,8)
+Power2(10,3)
+Power2(8,17)
+Power2(131,3)
+
+Power3 = function(x,a){
+  result = x^a
+  return(result)
+}
+x=1:10
+y=Power3(x,2)
+plot(x,y,log="x")
+
+PlotPower = function(x,a){
+  x1 = x
+  y1 = x^a
+  plot(x1,y1)
+}
+PlotPower(1:10,3)
+```
+
+##13
+```{r}
+summary(Boston)
+Boston= transform(Boston, crim01 = ifelse(crim > median(Boston$crim),1,0))
+cor(Boston$crim01,Boston)
+```
+
+```{r}
+#train test split
+set.seed(101)
+sample = sample.split(Boston$crim,SplitRatio = 0.7)
+train = subset(Boston,sample == TRUE)
+test = subset(Boston, sample == FALSE)
+```
+
+```{r}
+#Logistic Regression: using all variables except crim and chas(low correaltion)
+glm.fit = glm(crim01 ~.-crim-chas,data = train,family = binomial)
+summary(glm.fit)
+
+
+#using statistically significant variable
+glm.fit1 = glm(crim01 ~zn + nox +dis + rad + tax,data = train,family = binomial)
+summary(glm.fit1)
+lg_probs = predict(glm.fit1,test,type = "response")
+lg_probs[lg_probs > 0.5] = 1
+lg_probs[lg_probs <= 0.5] = 0
+table(lg_probs,test$crim01)
+mean(lg_probs == test$crim01)
+
+#lda
+lda.fit = lda(crim01 ~.-crim-chas,data = train)
+lda_pred = predict(lda.fit,test)
+table(lda_pred$class,test$crim01)
+mean(lda_pred$class==test$crim01)
+
+#qda
+qda.fit = qda(crim01 ~.-crim-chas,data = train)
+qda_pred = predict(qda.fit,test)
+table(qda_pred$class,test$crim01)
+mean(qda_pred$class==test$crim01)
+
+#knn
+train_X = subset(train,select = -c(crim,chas))
+test_X = subset(test,select = -c(crim,chas))
+train_Y = train$crim01
+test_Y = test$crim01
+
+train_X = scale(train_X)
+test_X = scale(test_X)
+
+knn_pred = knn(train_X,test_X,train_Y,k=1)
+table(knn_pred,test_Y)
+```
