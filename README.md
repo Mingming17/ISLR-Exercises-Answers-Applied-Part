@@ -3,3 +3,5 @@ My solutions for "An Introduction to Statistical Learning with Applications in R
 
 
 4. Classification: logistic regression, LDA, QDA, KNN
+
+5. Resampling Methods: Cross-Validation, The Bootstrap
