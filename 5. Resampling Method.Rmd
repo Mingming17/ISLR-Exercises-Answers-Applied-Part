@@ -1,0 +1,239 @@
+---
+title: "5. Resampling Methods"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##5.
+```{r}
+library(ISLR)
+library(MASS)
+```
+
+```{r}
+set.seed(1)
+```
+
+###a
+```{r}
+glm.fit = glm(default ~ income + balance, data = Default,family = binomial)
+```
+
+###b
+```{r}
+require(caTools)
+sample_data = sample.split(Default$default,SplitRatio = 0.5)
+train = subset(Default, sample_data = TRUE)
+validation = subset(Default, sample_data = FALSE)
+
+glm.fit1 = glm(default ~ income + balance, data = train,family = binomial)
+lg_probs = predict(glm.fit1, validation, type = "response")
+lg_probs[lg_probs < 0.5] = "No"
+lg_probs[lg_probs >= 0.5] = "Yes"
+table(lg_probs,validation$default)
+```
+
+###c
+```{r}
+sample_data = sample.split(Default$default,SplitRatio = 0.7)
+train = subset(Default, sample_data = TRUE)
+validation = subset(Default, sample_data = FALSE)
+
+glm.fit1 = glm(default ~ income + balance, data = train,family = binomial)
+lg_probs = predict(glm.fit1, validation, type = "response")
+lg_probs[lg_probs < 0.5] = "No"
+lg_probs[lg_probs >= 0.5] = "Yes"
+table(lg_probs,validation$default)
+```
+
+###d
+```{r}
+glm.fit2 = glm(default ~ income + balance + student, data = train,family = binomial)
+lg_probs2 = predict(glm.fit2, validation, type = "response")
+lg_probs2[lg_probs2 < 0.5] = "No"
+lg_preds2[lg_probs2 >= 0.5] = "Yes"
+table(lg_probs2,validation$default)
+```
+
+
+##6
+###a
+```{r}
+set.seed(1)
+glm.fit = glm(default ~ income + balance, data = Default,family = binomial)
+summary(glm.fit)$coefficient[2:3,2]
+```
+
+###b
+```{r}
+boot.fn = function(data,index){
+  default = data$default[index]
+  income = data$income[index]
+  balance = data$balance[index]
+  glm.fit = glm(default ~ income + balance, data = data,family = binomial)
+  return(summary(glm.fit)$coefficient[2:3,2])
+}
+
+boot.fn(Default,1:length(Default$default))
+```
+
+###c
+```{r}
+library(boot)
+boot(Default,boot.fn,R=100)
+```
+
+
+##7
+###a
+```{r}
+set.seed(1)
+glm.fit = glm(Direction ~ Lag1 + Lag2, data = Weekly, family = binomial)
+```
+
+###b
+```{r}
+glm.fit = glm(Direction ~ Lag1 + Lag2, data = Weekly[-c(1),], family = binomial)
+```
+
+###c
+```{r}
+predict(glm.fit,Weekly[1,],type = "response")
+```
+
+###d
+```{r}
+lg_preds = rep(NA,length(Weekly$Direction))
+lg_errors = rep(NA,length(Weekly$Direction))
+for (i in 1:length(Weekly$Direction)){
+  glm.fit = glm(Direction ~ Lag1 + Lag2, data = Weekly[-c(i),], family = binomial)
+  lg_probs = predict(glm.fit,Weekly[i,],type = "response")
+  if (lg_probs > 0.5){
+    lg_preds[i] = "Up"
+  }else {
+    lg_preds[i] = "Down"
+  }
+  if(lg_preds[i] == Weekly$Direction[i]){
+    lg_errors[i] = 0
+  } else {
+    lg_errors[i] = 1
+  }
+}
+```
+
+###e
+```{r}
+sum(lg_errors)/length(Weekly$Direction)
+```
+
+
+##8
+###a
+```{r}
+set.seed(1)
+x = rnorm(100)
+y = x-2*x^2+rnorm(100)
+```
+
+###b
+```{r}
+plot(x,y)
+```
+
+###c
+```{r}
+set.seed(100)
+x = c(rnorm(100))
+y = c(x-2*x^2+rnorm(100))
+df = data.frame(x,y)
+lm_error = rep(0,4)
+
+for (i in 1:4){
+  lm.fit = glm(y ~ poly(x,degree = i,raw = TRUE))
+  lm_error[i] = cv.glm(df,lm.fit)$delta[1]
+}
+
+lm_error
+```
+
+###d
+```{r}
+set.seed(123)
+x = c(rnorm(100))
+y = c(x-2*x^2+rnorm(100))
+df = data.frame(x,y)
+lm_error = rep(0,4)
+
+for (i in 1:4){
+  lm.fit = glm(y ~ poly(x,degree = i,raw = TRUE))
+  lm_error[i] = cv.glm(df,lm.fit)$delta[1]
+}
+
+lm_error
+```
+
+##9
+###a
+```{r}
+u = mean(Boston$medv)
+```
+
+###b
+```{r}
+sd = sqrt(sum(Boston$medv - u)^2) / (length(Boston$medv) - 1)
+se = sd / sqrt(length(Boston$medv))
+se
+```
+
+###c
+```{r}
+boot.fn = function(data,index){
+  x = data$medv[index]
+  return(mean(x))
+}
+
+set.seed(1)
+boot(Boston,boot.fn,R=1000)
+```
+
+###d
+```{r}
+lower_bond = u - 2*se
+higher_bond = u + 2*se
+t.test(Boston$medv)
+```
+
+###e
+```{r}
+median(Boston$medv)
+```
+
+###f
+```{r}
+boot.fn2 = function(data,index){
+  x = data$medv[index]
+  return(median(x))
+}
+
+boot(Boston,boot.fn2,R=1000)
+```
+
+###g
+```{r}
+quantile(Boston$medv,.1)
+```
+
+###h
+```{r}
+
+boot.fn3 = function(data,index){
+  x = data$medv[index]
+  return(quantile(x,.1))
+}
+
+boot(Boston,boot.fn3,R=1000)
+```
+
