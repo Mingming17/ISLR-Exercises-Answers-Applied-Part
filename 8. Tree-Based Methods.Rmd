@@ -1,0 +1,233 @@
+---
+title: '8. Tree-Based Methods '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ISLR)
+library(MASS)
+library(randomForest)
+library(tree)
+library(tidyr)
+library(gbm)
+library(glmnet)
+```
+
+
+##7
+```{r}
+set.seed (123)
+train = sample(1:nrow(Boston), nrow(Boston)/2)
+boston.test = Boston[-train ,"medv"]
+
+error=c()
+for(mtry in 8:13){
+    bag.boston=randomForest(medv~.,data=Boston,subset=train, mtry=mtry,ntree=500)
+    yhat.bag = predict(bag.boston ,newdata=Boston[-train,])
+    error[mtry-7] = mean((yhat.bag-boston.test)^2)
+  }
+
+#plot
+plot(8:13,error,,type='l',ylab='test error',xlab='ntree',lty=1)
+```
+
+##8
+###a train-test split
+```{r}
+set.seed(123)
+train=sample(1:nrow(Carseats),nrow(Carseats)/2)
+```
+
+###b Fit a regression tree
+```{r}
+tree.carseats=tree(Sales~.,data=Carseats,subset = train)
+tree.pred=predict(tree.carseats,Carseats[-train,])
+mean((tree.pred-Carseats[-train,'Sales'])^2)
+
+#plot the tree
+plot(tree.carseats)
+text(tree.carseats,pretty=0)
+```
+
+###c cross-validation to determine the optimal level of tree complexity
+```{r}
+cv.carseats =cv.tree(tree.carseats)
+plot(cv.carseats$size ,cv.carseats$dev ,type="b")
+```
+
+```{r}
+prune.carseats=prune.tree(tree.carseats,best=15)
+tree.pred=predict(prune.carseats,Carseats[-train,])
+mean((tree.pred-Carseats[-train,'Sales'])^2)
+```
+
+###d using bagging approach
+```{r}
+rf.carseats=randomForest(Sales~.,data=Carseats,subset=train,mtry=10,importance=T,ntree=100)
+tree.pred=predict(rf.carseats,Carseats[-train,])
+mean((tree.pred-Carseats[-train,'Sales'])^2)
+
+#variables importance
+importance (rf.carseats)
+varImpPlot (rf.carseats)
+```
+
+##9
+###a train-test split
+```{r}
+set.seed(123)
+train=sample(1:nrow(OJ),800)
+OJ.train=OJ[train,]
+OJ.test=OJ[-train,]
+```
+
+###b fit a tree
+```{r}
+OJ.tree=tree(Purchase~.,data=OJ.train)
+summary(OJ.tree)
+```
+
+###c 
+```{r}
+OJ.tree
+```
+
+###d plot of tree
+```{r}
+plot(OJ.tree)
+text(OJ.tree,,pretty=0)
+```
+
+###e predict
+```{r}
+tree.pred = predict(OJ.tree, OJ.test, type = "class")
+table(tree.pred,OJ.test$Purchase)
+```
+
+###f,g,h cross-validation to determine the optimal tree size
+```{r}
+cv.OJ =cv.tree(OJ.tree,FUN=prune.misclass)
+plot(cv.OJ$size ,cv.OJ$dev ,type="b")
+```
+
+###i,j,k
+```{r}
+prune.OJ=prune.tree(OJ.tree,best=5)
+tree.pred=predict(prune.OJ,OJ.test, type = "class")
+table(tree.pred,OJ.test$Purchase)
+```
+
+##10
+###a remove NA value
+```{r}
+Hitters = Hitters %>%
+  drop_na(Salary)
+Hitters$Salary = log(Hitters$Salary) 
+```
+
+###b train-test split
+```{r}
+Hitters.train=Hitters[1:200,]
+Hitters.test=Hitters[-c(1:200),]
+```
+
+###c perform boosting
+```{r}
+set.seed(123)
+
+lambdas = seq(0,0.05,0.001)
+train.mse = rep(NA,length(lambdas))
+test.mse = rep(NA,length(lambdas))
+
+for (i in lambdas){
+  boost.Hitters = gbm(Salary~., Hitters.train,distribution = "gaussian", n.trees = 1000, 
+                      interaction.depth = 4, shrinkage = i)
+  yhat.train = predict(boost.Hitters,newdata = Hitters.train, n.trees = 1000)
+  train.mse[which(i==lambdas)] = mean((yhat.train-Hitters.train$Salary)^2)
+  
+  yhat.test = predict(boost.Hitters,newdata = Hitters.test, n.trees = 1000)
+  test.mse[which(i==lambdas)] = mean((yhat.test-Hitters.test$Salary)^2)
+}
+
+
+```
+
+```{r}
+#plot training set MSE
+par(mfrow=c(1,2))
+plot(lambdas,train.mse,type="b",xlab=expression(lambda), ylab="Train MSE")
+```
+
+###d plot test set MSE
+```{r}
+par(mfrow=c(1,2))
+plot(lambdas,test.mse,type="b",xlab=expression(lambda), ylab="Test MSE")
+```
+
+###e compare with linear regression and ridge regression
+```{r}
+#linear regression
+Hitters.lm=lm(Salary~.,Hitters.train)
+Hitters.pred=predict(Hitters.lm,Hitters.test)
+mean(Hitters.pred-Hitters.test$Salary)^2
+```
+
+```{r}
+#ridge regression
+x = model.matrix(Salary ~ ., data = Hitters.train)
+x.test = model.matrix(Salary ~ ., data = Hitters.test)
+y = Hitters.train$Salary
+
+Hitters.glm=glmnet(x,y,alpha = 0)
+Hitters.pred=predict(Hitters.glm,x.test)
+mean(Hitters.pred-Hitters.test$Salary)^2
+```
+
+###f variable importance
+```{r}
+boost.best = gbm(Salary~., data=Hitters.train, distribution = "gaussian", n.trees = 1000, 
+                 interaction.depth = 4, shrinkage = 0.01)
+summary(boost.best)
+```
+
+###g Random Forest
+```{r}
+rf.Hitters=randomForest(Salary~.,data=Hitters.train,mtry=10,importance=T)
+tree.pred=predict(rf.Hitters,Hitters.test)
+mean((tree.pred-Hitters.test$Salary)^2)
+```
+
+##11
+###a train-test split
+```{r}
+Caravan$Purchase=ifelse(Caravan$Purchase == "Yes",1,0)
+Caravan.train=Caravan[1:1000,]
+Caravan.test=Caravan[-c(1:1000),]
+```
+
+###b fit a boosting model
+```{r}
+set.seed(123)
+Caravan.gbm=gbm(Purchase~.,data=Caravan.train,n.trees = 1000,shrinkage = 0.01,distribution = "bernoulli")
+summary(Caravan.gbm)
+```
+
+###c predict
+```{r}
+Caravan.pred=predict(Caravan.gbm,Caravan.test,n.trees = 1000,type='response')
+Caravan.pred=ifelse(Caravan.pred>0.2,1,0)
+table(Caravan.test$Purchase,Caravan.pred)
+```
+
+```{r}
+#compare with logistic model
+Caravan.glm=glm(Purchase~.,family='binomial',data = Caravan.train)
+Caravan.pred=predict(Caravan.glm,Caravan.test,type='response')
+Caravan.pred=ifelse(Caravan.pred>0.2,1,0)
+table(Caravan.test$Purchase,Caravan.pred)
+```
+
